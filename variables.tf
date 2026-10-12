@@ -25,20 +25,3 @@ variable "route_tables" {
   }))
 }
 
-variable "use_tagger" {
-  description = "Compute and apply standardized tags via terraform-null-tagger. When false, use var.tags as-is instead."
-  type        = bool
-  default     = true
-}
-
-variable "tagger_context" {
-  description = "module.tagger.context from the root stack's base terraform-null-tagger call."
-  type        = any
-  default     = null
-}
-
-variable "tags" {
-  description = "When use_tagger = true, fills in keys the tagger module doesn't already produce (tagger wins on conflict). Used as-is when use_tagger = false."
-  type        = map(string)
-  default     = {}
-}

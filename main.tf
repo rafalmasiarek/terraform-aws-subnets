@@ -1,3 +1,10 @@
+locals {
+  taggable = merge(
+    { for k, v in var.subnet_groups : "subnet-${k}" => k },
+    { for k, v in var.route_tables : "rt-${k}" => k },
+  )
+}
+
 resource "aws_subnet" "this" {
   for_each = var.subnet_groups
 
@@ -6,7 +13,7 @@ resource "aws_subnet" "this" {
   availability_zone       = each.value.availability_zone
   map_public_ip_on_launch = each.value.map_public_ip_on_launch
 
-  tags = local.subnet_tags[each.key]
+  tags = local.tagger_tags["subnet-${each.key}"]
 }
 
 resource "aws_route_table" "this" {
@@ -14,7 +21,7 @@ resource "aws_route_table" "this" {
 
   vpc_id = var.vpc_id
 
-  tags = local.route_table_tags[each.key]
+  tags = local.tagger_tags["rt-${each.key}"]
 }
 
 locals {
