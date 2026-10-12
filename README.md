@@ -45,7 +45,7 @@ module "subnets" {
 | `route_tables` | `map(object)` | - | `routes` list: `cidr_block` + one of `gateway_id`/`nat_gateway_id`/`network_interface_id`. |
 | `use_tagger` | `bool` | `true` | `false` applies `var.tags` as-is instead. |
 | `tagger_context` | `any` | `null` | `module.tagger.context` from the root stack. |
-| `tags` | `map(string)` | `{}` | Fills gaps when `use_tagger = true` (tagger wins on conflict); used as-is when `false`. |
+| `tags` | `map(string)` | `{}` | Custom tags for the resource. |
 
 ## Outputs
 
