@@ -64,7 +64,13 @@ module "subnets" {
 
 ## IPv6
 
-Each subnet with `ipv6_enabled = true` gets a deterministic `/64` via
+Leave `ipv6_enabled` unset and it follows the VPC: on for every subnet
+if `vpc_ipv6_cidr_block` is set, off otherwise. Set it explicitly per
+subnet to override that. Setting `ipv6_enabled = true` without
+`vpc_ipv6_cidr_block` fails plan with a clear error instead of a
+cryptic one.
+
+Each IPv6-enabled subnet gets a deterministic `/64` via
 `cidrsubnet(vpc_ipv6_cidr_block, 8, <position in the sorted subnet_groups
 keys>)` - same convention used by cloudposse's dynamic-subnets module.
 Keep `subnet_groups` keys stable over time, or Terraform will reassign
