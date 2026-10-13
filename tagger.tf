@@ -5,8 +5,10 @@
 # https://github.com/rafalmasiarek/terraform-null-tagger
 # https://github.com/rafalmasiarek/terraform-provider-tagger
 #
-# Requires a local map named `taggable` (map(string): key => name), defined
-# elsewhere in this module - one entry per resource that needs tags.
+# Requires a local map named `taggable` (map(object)), defined elsewhere in
+# this module - one entry per resource that needs tags. Each entry is
+# { name = string, <any terraform-null-tagger service category> = ... } -
+# only `name` is required, every category defaults to null if omitted.
 #
 # use_tagger = false bypasses all of this and uses var.tags directly. The
 # tagger provider must still be declared in required_providers regardless -
@@ -42,10 +44,21 @@ module "tagger" {
   source   = "rafalmasiarek/tagger/null"
   version  = ">= 0.1.0"
   context  = var.tagger_context
-  name     = each.value
+  name     = each.value.name
 
   origin_source  = data.tagger_origin.self[0].source
   origin_version = data.tagger_origin.self[0].version
+
+  database          = try(each.value.database, null)
+  compute           = try(each.value.compute, null)
+  cache             = try(each.value.cache, null)
+  load_balancer     = try(each.value.load_balancer, null)
+  object_storage    = try(each.value.object_storage, null)
+  block_storage     = try(each.value.block_storage, null)
+  kubernetes        = try(each.value.kubernetes, null)
+  serverless        = try(each.value.serverless, null)
+  autoscaling_group = try(each.value.autoscaling_group, null)
+  network           = try(each.value.network, null)
 }
 
 locals {
