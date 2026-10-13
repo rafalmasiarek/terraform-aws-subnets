@@ -33,6 +33,13 @@ locals {
     for k, v in var.subnet_groups :
     k => v.cidr_block != null ? v.cidr_block : cidrsubnet(var.ipv4_base_cidr_block, var.ipv4_subnet_newbits, local.subnet_index_by_key[k])
   }
+
+  # ipv6_enabled left unset (null) follows the VPC: on iff vpc_ipv6_cidr_block
+  # is set. An explicit true/false always wins over that default.
+  ipv6_enabled_by_key = {
+    for k, v in var.subnet_groups :
+    k => v.ipv6_enabled != null ? v.ipv6_enabled : var.vpc_ipv6_cidr_block != null
+  }
 }
 
 resource "aws_subnet" "this" {
@@ -43,10 +50,17 @@ resource "aws_subnet" "this" {
   availability_zone       = each.value.availability_zone
   map_public_ip_on_launch = each.value.map_public_ip_on_launch
 
-  ipv6_cidr_block                 = each.value.ipv6_enabled ? cidrsubnet(var.vpc_ipv6_cidr_block, 8, local.subnet_index_by_key[each.key]) : null
-  assign_ipv6_address_on_creation = each.value.ipv6_enabled ? each.value.assign_ipv6_address_on_creation : null
+  ipv6_cidr_block                 = local.ipv6_enabled_by_key[each.key] ? cidrsubnet(var.vpc_ipv6_cidr_block, 8, local.subnet_index_by_key[each.key]) : null
+  assign_ipv6_address_on_creation = local.ipv6_enabled_by_key[each.key] ? each.value.assign_ipv6_address_on_creation : null
 
   tags = local.tagger_tags["subnet-${each.key}"]
+
+  lifecycle {
+    precondition {
+      condition     = !local.ipv6_enabled_by_key[each.key] || var.vpc_ipv6_cidr_block != null
+      error_message = "subnet_groups[\"${each.key}\"] has ipv6_enabled = true but vpc_ipv6_cidr_block was not provided."
+    }
+  }
 }
 
 resource "aws_route_table" "this" {

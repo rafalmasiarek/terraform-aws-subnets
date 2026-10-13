@@ -28,7 +28,7 @@ variable "subnet_groups" {
     availability_zone               = optional(string)
     route_table_key                 = string
     map_public_ip_on_launch         = optional(bool, false)
-    ipv6_enabled                    = optional(bool, false)
+    ipv6_enabled                    = optional(bool) # unset follows vpc_ipv6_cidr_block - see README
     assign_ipv6_address_on_creation = optional(bool, true)
   }))
 }
