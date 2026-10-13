@@ -1,19 +1,33 @@
 #
-# Standard wiring for terraform-null-tagger / terraform-provider-tagger.
-# Identical in every module that uses it - copy verbatim, do not edit here.
+# ONLY EDIT THIS FILE IN github.com/rafalmasiarek/terraform-null-tagger
+# All other instances of this file should be a copy of this one.
 #
-# https://github.com/rafalmasiarek/terraform-null-tagger
-# https://github.com/rafalmasiarek/terraform-provider-tagger
+# Copy this file from
+# https://github.com/rafalmasiarek/terraform-null-tagger/blob/main/exports/tagger.tf
+# and place it in your module to wire up standardized tagging:
 #
-# Requires a local map named `taggable` (map(object)), defined elsewhere in
-# this module - one entry per resource that needs tags. Each entry is
-# { name = string, <any terraform-null-tagger service category> = ... } -
-# only `name` is required, every category defaults to null if omitted.
+#   curl -sL https://raw.githubusercontent.com/rafalmasiarek/terraform-null-tagger/main/exports/tagger.tf -o tagger.tf
+#
+# Requires a local map named `taggable` (map(object)), defined elsewhere
+# in this module - one entry per resource that needs tags:
+#
+#   { name       = string
+#     service    = optional(any, {})          # see terraform-null-tagger's `service` variable
+#     attributes = optional(list(string), [])  # extra name_prefix segments
+#     created_at = optional(string)            # RFC3339, e.g. time_static.created.rfc3339
+#     extra_tags = optional(any, {}) }         # arbitrary custom tags
 #
 # use_tagger = false bypasses all of this and uses var.tags directly. The
 # tagger provider must still be declared in required_providers regardless -
 # Terraform checks provider availability at init time independently of
 # for_each = {}.
+#
+# tagger_additional_services lets a caller add service data this module
+# doesn't compute itself, keyed by the same key used in local.taggable:
+#
+#   tagger_additional_services = {
+#     "subnet-public-a" = { network = { nat_gateway_id = aws_nat_gateway.example.id } }
+#   }
 #
 
 variable "use_tagger" {
@@ -34,6 +48,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "tagger_additional_services" {
+  description = "Extra terraform-null-tagger `service` data per taggable resource, keyed by the same key as local.taggable (e.g. \"subnet-public-a\"). Merged on top of what this module computes automatically - lets a caller tag something this module doesn't know about, without waiting for a new module release."
+  type        = any
+  default     = {}
+}
+
 data "tagger_origin" "self" {
   count       = var.use_tagger ? 1 : 0
   module_path = path.module
@@ -42,23 +62,17 @@ data "tagger_origin" "self" {
 module "tagger" {
   for_each = var.use_tagger ? local.taggable : {}
   source   = "rafalmasiarek/tagger/null"
-  version  = ">= 0.1.0"
+  version  = ">= 0.5.0"
   context  = var.tagger_context
   name     = each.value.name
 
   origin_source  = data.tagger_origin.self[0].source
   origin_version = data.tagger_origin.self[0].version
 
-  database          = try(each.value.database, null)
-  compute           = try(each.value.compute, null)
-  cache             = try(each.value.cache, null)
-  load_balancer     = try(each.value.load_balancer, null)
-  object_storage    = try(each.value.object_storage, null)
-  block_storage     = try(each.value.block_storage, null)
-  kubernetes        = try(each.value.kubernetes, null)
-  serverless        = try(each.value.serverless, null)
-  autoscaling_group = try(each.value.autoscaling_group, null)
-  network           = try(each.value.network, null)
+  service    = merge(try(each.value.service, {}), try(var.tagger_additional_services[each.key], {}))
+  attributes = try(each.value.attributes, null)
+  created_at = try(each.value.created_at, null)
+  extra_tags = try(each.value.extra_tags, {})
 }
 
 locals {

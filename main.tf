@@ -1,16 +1,26 @@
 locals {
-  taggable = merge(
-    {
-      for k, v in var.subnet_groups : "subnet-${k}" => {
-        name = k
+  subnet_taggable = {
+    for k, v in var.subnet_groups : "subnet-${k}" => {
+      name = k
+      service = {
         network = {
           vpc_id            = var.vpc_id
           availability_zone = v.availability_zone
         }
       }
-    },
-    { for k, v in var.route_tables : "rt-${k}" => { name = k, network = { vpc_id = null, availability_zone = null } } },
-  )
+      attributes = var.az_name_attribute && v.availability_zone != null ? [local.az_code_by_subnet[k]] : []
+    }
+  }
+
+  route_table_taggable = {
+    for k, v in var.route_tables : "rt-${k}" => {
+      name       = k
+      service    = {}
+      attributes = []
+    }
+  }
+
+  taggable = merge(local.subnet_taggable, local.route_table_taggable)
 
   # Stable per-subnet index for cidrsubnet() - order must not change over
   # time or Terraform will reassign every subnet's CIDR. Shared by both

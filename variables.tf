@@ -33,6 +33,18 @@ variable "subnet_groups" {
   }))
 }
 
+variable "az_name_attribute" {
+  description = "Add a short AZ code (e.g. euc1a) as a name_prefix attribute to every subnet - the code comes before the subnet's own name, e.g. acme-prod-euc1a-public-a. Default false - no change to existing naming."
+  type        = bool
+  default     = false
+}
+
+variable "az_code_overrides" {
+  description = "Per-AZ override for az_code_table, e.g. { \"eu-central-1a\" = \"eu1\" }. Only used when az_name_attribute = true."
+  type        = map(string)
+  default     = {}
+}
+
 variable "route_tables" {
   description = "One aws_route_table per entry. Bring your own target per route: gateway_id, nat_gateway_id, network_interface_id, or egress_only_gateway_id (IPv6 private egress - NAT Gateway does not carry IPv6 traffic). Set cidr_block for an IPv4 route or ipv6_cidr_block for an IPv6 route, never both."
   type = map(object({
