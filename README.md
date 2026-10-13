@@ -60,22 +60,7 @@ module "subnets" {
 |---|---|
 | `subnet_ids` | Map keyed by `subnet_groups` key. |
 | `route_table_ids` | Map keyed by `route_tables` key. |
-| `subnet_ipv6_cidr_blocks` | Map keyed by `subnet_groups` key, only entries with `ipv6_enabled = true`. |
-
-## IPv6
-
-Leave `ipv6_enabled` unset and it follows the VPC: on for every subnet
-if `vpc_ipv6_cidr_block` is set, off otherwise. Set it explicitly per
-subnet to override that. Setting `ipv6_enabled = true` without
-`vpc_ipv6_cidr_block` fails plan with a clear error instead of a
-cryptic one.
-
-Each IPv6-enabled subnet gets a deterministic `/64` via
-`cidrsubnet(vpc_ipv6_cidr_block, 8, <position in the sorted subnet_groups
-keys>)` - same convention used by cloudposse's dynamic-subnets module.
-Keep `subnet_groups` keys stable over time, or Terraform will reassign
-every subnet's IPv6 CIDR. NAT Gateway never carries IPv6 traffic - route
-private IPv6 egress through `egress_only_gateway_id` instead.
+| `subnet_ipv6_cidr_blocks` | Map keyed by `subnet_groups` key, only subnets that actually got an IPv6 CIDR. |
 
 ## Subnet CIDR allocation
 

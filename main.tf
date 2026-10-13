@@ -34,11 +34,11 @@ locals {
     k => v.cidr_block != null ? v.cidr_block : cidrsubnet(var.ipv4_base_cidr_block, var.ipv4_subnet_newbits, local.subnet_index_by_key[k])
   }
 
-  # ipv6_enabled left unset (null) follows the VPC: on iff vpc_ipv6_cidr_block
-  # is set. An explicit true/false always wins over that default.
+  # On whenever vpc_ipv6_cidr_block is set, regardless of ipv6_enabled -
+  # no per-subnet opt-out once the VPC has IPv6.
   ipv6_enabled_by_key = {
     for k, v in var.subnet_groups :
-    k => v.ipv6_enabled != null ? v.ipv6_enabled : var.vpc_ipv6_cidr_block != null
+    k => v.ipv6_enabled || var.vpc_ipv6_cidr_block != null
   }
 }
 
