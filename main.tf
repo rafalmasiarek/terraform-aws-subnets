@@ -77,21 +77,24 @@ locals {
   _subnets_by_az = {
     for az in local._azs : az => [for k, v in var.subnet_groups : k if v.availability_zone == az]
   }
+  _egress_ids = distinct([for t in values(local.egress_target_by_subnet) : t if t != null])
+
+  _egress_labels = { for id in local._egress_ids : id => element(split("-", id), 0) }
 
   topology_mermaid = join("\n", flatten([
-    ["graph LR"],
-    ["  subgraph vpc[${var.vpc_id}]"],
+    ["graph TD"],
+    [format("  subgraph vpc[%s]", var.vpc_id)],
     flatten([
       for az in local._azs : [
-        "    subgraph az_${az}[\"${az}\"]",
-        [for k in local._subnets_by_az[az] : "      ${k}[${k}]"],
+        format("    subgraph az_%s[\"%s\"]", az, az),
+        [for k in local._subnets_by_az[az] : format("      %s", k)],
         "    end",
       ]
     ]),
     ["  end"],
-    ["  internet[Internet]"],
-    [for id in distinct([for t in values(local.egress_target_by_subnet) : t if t != null]) : "  ${id}[${element(split("-", id), 0)}] --> internet"],
-    [for k, t in local.egress_target_by_subnet : "  ${k} --> ${t}" if t != null],
+    [for id in local._egress_ids : format("  %s[%s]", id, local._egress_labels[id])],
+    length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
+    [for id in local._egress_ids : format("  %s --> internet", id)],
   ]))
 }
 
