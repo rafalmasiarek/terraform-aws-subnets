@@ -72,11 +72,26 @@ locals {
     length(local._eni_targets[k]) > 0 ? local._eni_targets[k][0] : null
   }
 
+  _azs    = sort(distinct([for k, v in var.subnet_groups : v.availability_zone if v.availability_zone != null]))
+  _region = length(local._azs) > 0 ? substr(local._azs[0], 0, length(local._azs[0]) - 1) : "unknown"
+  _subnets_by_az = {
+    for az in local._azs : az => [for k, v in var.subnet_groups : k if v.availability_zone == az]
+  }
+
   topology_mermaid = join("\n", flatten([
     ["graph LR"],
+    ["  subgraph vpc[${var.vpc_id}]"],
+    flatten([
+      for az in local._azs : [
+        "    subgraph az_${az}[\"${az}\"]",
+        [for k in local._subnets_by_az[az] : "      ${k}[${k}]"],
+        "    end",
+      ]
+    ]),
+    ["  end"],
     ["  internet[Internet]"],
     [for id in distinct([for t in values(local.egress_target_by_subnet) : t if t != null]) : "  ${id}[${element(split("-", id), 0)}] --> internet"],
-    [for k, t in local.egress_target_by_subnet : t != null ? "  ${k}[${k}] --> ${t}" : "  ${k}[${k}]"],
+    [for k, t in local.egress_target_by_subnet : "  ${k} --> ${t}" if t != null],
   ]))
 }
 
