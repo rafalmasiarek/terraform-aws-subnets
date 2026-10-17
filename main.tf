@@ -1,4 +1,22 @@
 locals {
+  _egress_routes = {
+    for k, v in var.subnet_groups : k => (
+      contains(keys(var.route_tables), v.route_table_key)
+        ? [for r in var.route_tables[v.route_table_key].routes : r if r.cidr_block == "0.0.0.0/0"]
+        : []
+    )
+  }
+
+  egress_type_by_subnet = {
+    for k, routes in local._egress_routes : k => (
+      length(routes) == 0 ? "none" : (
+        routes[0].gateway_id != null ? "internet-gateway" :
+        routes[0].nat_gateway_id != null ? "nat-gateway" :
+        routes[0].network_interface_id != null ? "network-interface" : "none"
+      )
+    )
+  }
+
   subnet_taggable = {
     for k, v in var.subnet_groups : "subnet-${k}" => {
       name = k
@@ -7,6 +25,8 @@ locals {
           vpc_id            = var.vpc_id
           availability_zone = v.availability_zone
           az_code           = local.az_code_by_subnet[k]
+          role              = v.role
+          egress_type       = local.egress_type_by_subnet[k]
         }
       }
       attributes = var.az_name_attribute && v.availability_zone != null ? [local.az_code_by_subnet[k]] : []
