@@ -34,12 +34,15 @@ locals {
     k => v.cidr_block != null ? v.cidr_block : cidrsubnet(var.ipv4_base_cidr_block, var.ipv4_subnet_newbits, local.subnet_index_by_key[k])
   }
 
-  # On whenever vpc_ipv6_cidr_block is set, regardless of ipv6_enabled -
-  # no per-subnet opt-out once the VPC has IPv6.
+  # Per-subnet opt-in: a subnet gets IPv6 only when its own flag is true.
+  # The VPC-level CIDR is a prerequisite (validated below), not an implicit
+  # switch that turns IPv6 on for every subnet.
   ipv6_enabled_by_key = {
     for k, v in var.subnet_groups :
-    k => v.ipv6_enabled || var.vpc_ipv6_cidr_block != null
+    k => v.ipv6_enabled
   }
+
+  any_subnet_wants_ipv6 = contains(values(var.subnet_groups[*].ipv6_enabled), true)
 }
 
 resource "aws_subnet" "this" {
@@ -59,6 +62,14 @@ resource "aws_subnet" "this" {
     precondition {
       condition     = !local.ipv6_enabled_by_key[each.key] || var.vpc_ipv6_cidr_block != null
       error_message = "subnet_groups[\"${each.key}\"] has ipv6_enabled = true but vpc_ipv6_cidr_block was not provided."
+    }
+    precondition {
+      condition     = each.value.cidr_block == null || can(cidrhost(each.value.cidr_block, 0))
+      error_message = "subnet_groups[\"${each.key}\"].cidr_block \"${each.value.cidr_block}\" is not a valid CIDR."
+    }
+    precondition {
+      condition     = each.value.cidr_block != null || (var.ipv4_base_cidr_block != null && var.ipv4_subnet_newbits != null)
+      error_message = "subnet_groups[\"${each.key}\"] omits cidr_block but ipv4_base_cidr_block / ipv4_subnet_newbits are not set - cannot auto-slice."
     }
   }
 }
@@ -92,6 +103,21 @@ resource "aws_route" "this" {
   nat_gateway_id         = each.value.nat_gateway_id
   network_interface_id   = each.value.network_interface_id
   egress_only_gateway_id = each.value.egress_only_gateway_id
+
+  lifecycle {
+    precondition {
+      condition     = (each.value.cidr_block == null) != (each.value.ipv6_cidr_block == null)
+      error_message = "route \"${each.key}\" in route table \"${each.value.route_table_key}\": set exactly one of cidr_block or ipv6_cidr_block, not both and not neither."
+    }
+    precondition {
+      condition     = length([for t in [each.value.gateway_id, each.value.nat_gateway_id, each.value.network_interface_id, each.value.egress_only_gateway_id] : t if t != null]) == 1
+      error_message = "route \"${each.key}\" in route table \"${each.value.route_table_key}\": set exactly one target (gateway_id, nat_gateway_id, network_interface_id, egress_only_gateway_id)."
+    }
+    precondition {
+      condition     = contains(keys(var.route_tables), each.value.route_table_key)
+      error_message = "route \"${each.key}\" references route_table_key \"${each.value.route_table_key}\" which does not exist in var.route_tables."
+    }
+  }
 }
 
 resource "aws_route_table_association" "this" {

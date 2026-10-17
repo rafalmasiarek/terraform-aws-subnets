@@ -22,7 +22,7 @@ variable "ipv4_subnet_newbits" {
 }
 
 variable "subnet_groups" {
-  description = "One aws_subnet per entry. route_table_key must match a key in var.route_tables. Omit cidr_block to auto-slice it from ipv4_base_cidr_block instead."
+  description = "One aws_subnet per entry. route_table_key must match a key in var.route_tables. Omit cidr_block to auto-slice it from ipv4_base_cidr_block instead. role selects the routing profile: public, private, isolated, or endpoint."
   type = map(object({
     cidr_block                      = optional(string)
     availability_zone               = optional(string)
@@ -30,7 +30,28 @@ variable "subnet_groups" {
     map_public_ip_on_launch         = optional(bool, false)
     ipv6_enabled                    = optional(bool, false)
     assign_ipv6_address_on_creation = optional(bool, true)
+    role                            = optional(string, "private")
   }))
+
+  validation {
+    condition     = alltrue([for k, v in var.subnet_groups : contains(["public", "private", "isolated", "endpoint"], v.role)])
+    error_message = "subnet_groups[].role must be one of: public, private, isolated, endpoint."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.subnet_groups : !(v.role == "public" && !v.map_public_ip_on_launch)])
+    error_message = "A subnet with role \"public\" must set map_public_ip_on_launch = true."
+  }
+}
+
+variable "nat_topology" {
+  description = "\"per-az\" creates one NAT Gateway per AZ (resilient, expensive). \"shared\" uses a single NAT Gateway in the first available AZ (cheaper, single point of failure). Only relevant when you create NAT gateways outside this module and reference them via route tables."
+  type        = string
+  default     = "per-az"
+
+  validation {
+    condition     = contains(["per-az", "shared"], var.nat_topology)
+    error_message = "nat_topology must be \"per-az\" or \"shared\"."
+  }
 }
 
 variable "az_name_attribute" {
