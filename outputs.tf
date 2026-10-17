@@ -39,6 +39,21 @@ output "subnet_egress_targets" {
 }
 
 output "topology_mermaid" {
-  description = "Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render."
+  description = "Complete standalone Mermaid flowchart. Paste into a README.md fenced code block with language 'mermaid' to render."
   value       = local.topology_mermaid
+}
+
+output "topology_fragment" {
+  description = "Inner lines (AZ subgraphs + egress nodes) to paste inside a parent VPC subgraph when composing a multi-module topology diagram."
+  value       = local.topology_fragment
+}
+
+output "egress_edges" {
+  description = "Mermaid edge lines crossing the VPC boundary (egress --> internet). Append after the closing 'end' of the VPC subgraph."
+  value       = local.egress_edges
+}
+
+output "internal_edges" {
+  description = "Mermaid edge lines from egress nodes to subnets. Append inside or after the VPC subgraph."
+  value       = local.internal_edges
 }

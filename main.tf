@@ -81,10 +81,10 @@ locals {
 
   _egress_labels = { for id in local._egress_ids : id => element(split("-", id), 0) }
 
-  topology_mermaid = join("\n", flatten([
-    ["graph TD"],
-    length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
-    [format("  subgraph vpc[%s]", var.vpc_id)],
+  # Fragment to paste inside a parent VPC subgraph (no graph header, no
+  # internet node, no closing "end" for the VPC). Other modules (ECS, K8s)
+  # can append their own fragments at the same indentation level.
+  topology_fragment = join("\n", flatten([
     flatten([
       for az in local._azs : [
         format("    subgraph az_%s[\"%s\"]", az, az),
@@ -93,9 +93,27 @@ locals {
       ]
     ]),
     [for id in local._egress_ids : format("    %s[%s]", id, local._egress_labels[id])],
+  ]))
+
+  # Edges that cross the VPC boundary (egress nodes to Internet).
+  egress_edges = join("\n", [
+    for id in local._egress_ids : format("  %s --> internet", id)
+  ])
+
+  # Internal edges: egress node to each subnet it serves.
+  internal_edges = join("\n", [
+    for k, t in local.egress_target_by_subnet : format("  %s --> %s", t, k) if t != null
+  ])
+
+  # Standalone complete graph — works as-is in a README.
+  topology_mermaid = join("\n", flatten([
+    ["graph TD"],
+    length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
+    [format("  subgraph vpc[%s]", var.vpc_id)],
+    local.topology_fragment == "" ? [] : [local.topology_fragment],
     ["  end"],
-    [for id in local._egress_ids : format("  internet --> %s", id)],
-    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", t, k) if t != null],
+    length(local._egress_ids) > 0 ? [local.egress_edges] : [],
+    local.internal_edges == "" ? [] : [local.internal_edges],
   ]))
 }
 
