@@ -6,6 +6,7 @@ locals {
         network = {
           vpc_id            = var.vpc_id
           availability_zone = v.availability_zone
+          az_code           = local.az_code_by_subnet[k]
         }
       }
       attributes = var.az_name_attribute && v.availability_zone != null ? [local.az_code_by_subnet[k]] : []
@@ -119,7 +120,7 @@ resource "aws_subnet" "this" {
     }
     precondition {
       condition     = each.value.cidr_block == null || can(cidrhost(each.value.cidr_block, 0))
-      error_message = "subnet_groups[\"${each.key}\"].cidr_block \"${each.value.cidr_block}\" is not a valid CIDR."
+      error_message = "subnet_groups[\"${each.key}\"].cidr_block is not a valid CIDR."
     }
     precondition {
       condition     = each.value.cidr_block != null || (var.ipv4_base_cidr_block != null && var.ipv4_subnet_newbits != null)
