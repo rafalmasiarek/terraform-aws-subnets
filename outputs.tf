@@ -30,7 +30,15 @@ output "subnet_ipv6_cidr_blocks" {
   value = { for k, s in aws_subnet.this : k => s.ipv6_cidr_block if s.ipv6_cidr_block != null }
 }
 
-output "nat_topology" {
-  description = "Declared NAT topology: per-az or shared. Informational - this module does not create NAT gateways."
-  value       = var.nat_topology
+output "subnet_egress_targets" {
+  description = "Per-subnet egress target ID (NAT Gateway, IGW, EIGW, or null for isolated). Derived from route_tables."
+  value = {
+    for k, v in var.subnet_groups :
+    k => local.egress_target_by_subnet[k]
+  }
+}
+
+output "topology_mermaid" {
+  description = "Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render."
+  value       = local.topology_mermaid
 }

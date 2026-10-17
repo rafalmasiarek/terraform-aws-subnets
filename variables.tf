@@ -43,17 +43,6 @@ variable "subnet_groups" {
   }
 }
 
-variable "nat_topology" {
-  description = "\"per-az\" creates one NAT Gateway per AZ (resilient, expensive). \"shared\" uses a single NAT Gateway in the first available AZ (cheaper, single point of failure). Only relevant when you create NAT gateways outside this module and reference them via route tables."
-  type        = string
-  default     = "per-az"
-
-  validation {
-    condition     = contains(["per-az", "shared"], var.nat_topology)
-    error_message = "nat_topology must be \"per-az\" or \"shared\"."
-  }
-}
-
 variable "az_name_attribute" {
   description = "Add a short AZ code (e.g. euc1a) as a name_prefix attribute to every subnet - the code comes before the subnet's own name, e.g. acme-prod-euc1a-public-a. Default false - no change to existing naming."
   type        = bool

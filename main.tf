@@ -41,6 +41,43 @@ locals {
     for k, v in var.subnet_groups :
     k => v.ipv6_enabled
   }
+
+  # For each subnet, find the egress target from its route table.
+  # Priority: nat_gateway_id > gateway_id (IGW) > egress_only_gateway_id > null.
+  _rt_routes = {
+    for k, v in var.subnet_groups :
+    k => try(var.route_tables[v.route_table_key].routes, [])
+  }
+  _nat_targets = {
+    for k, routes in local._rt_routes :
+    k => [for r in routes : r.nat_gateway_id if r.nat_gateway_id != null]
+  }
+  _igw_targets = {
+    for k, routes in local._rt_routes :
+    k => [for r in routes : r.gateway_id if r.gateway_id != null]
+  }
+  _eigw_targets = {
+    for k, routes in local._rt_routes :
+    k => [for r in routes : r.egress_only_gateway_id if r.egress_only_gateway_id != null]
+  }
+  _eni_targets = {
+    for k, routes in local._rt_routes :
+    k => [for r in routes : r.network_interface_id if r.network_interface_id != null]
+  }
+  egress_target_by_subnet = {
+    for k in keys(var.subnet_groups) :
+    k => length(local._nat_targets[k]) > 0 ? local._nat_targets[k][0] :
+    length(local._igw_targets[k]) > 0 ? local._igw_targets[k][0] :
+    length(local._eigw_targets[k]) > 0 ? local._eigw_targets[k][0] :
+    length(local._eni_targets[k]) > 0 ? local._eni_targets[k][0] : null
+  }
+
+  topology_mermaid = join("\n", flatten([
+    ["graph LR"],
+    ["  internet[Internet]"],
+    [for id in distinct([for t in values(local.egress_target_by_subnet) : t if t != null]) : "  ${id}[${element(split("-", id), 0)}] --> internet"],
+    [for k, t in local.egress_target_by_subnet : t != null ? "  ${k}[${k}] --> ${t}" : "  ${k}[${k}]"],
+  ]))
 }
 
 resource "aws_subnet" "this" {
