@@ -83,6 +83,7 @@ locals {
 
   topology_mermaid = join("\n", flatten([
     ["graph TD"],
+    length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
     [format("  subgraph vpc[%s]", var.vpc_id)],
     flatten([
       for az in local._azs : [
@@ -91,10 +92,10 @@ locals {
         "    end",
       ]
     ]),
+    [for id in local._egress_ids : format("    %s[%s]", id, local._egress_labels[id])],
     ["  end"],
-    [for id in local._egress_ids : format("  %s[%s]", id, local._egress_labels[id])],
-    length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
-    [for id in local._egress_ids : format("  %s --> internet", id)],
+    [for id in local._egress_ids : format("  internet --> %s", id)],
+    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", t, k) if t != null],
   ]))
 }
 
