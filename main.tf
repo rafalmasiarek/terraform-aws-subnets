@@ -41,8 +41,6 @@ locals {
     for k, v in var.subnet_groups :
     k => v.ipv6_enabled
   }
-
-  any_subnet_wants_ipv6 = contains(values(var.subnet_groups[*].ipv6_enabled), true)
 }
 
 resource "aws_subnet" "this" {
