@@ -84,21 +84,24 @@ locals {
 
   _egress_labels = { for id in local._egress_ids : id => element(split("-", id), 0) }
 
+  # Mermaid node IDs must not contain hyphens or dots (treated as operators).
+  _m = { for id in setunion(keys(local.egress_target_by_subnet), toset(local._egress_ids), toset(local._azs)) : id => replace(replace(id, "-", "_"), ".", "_") }
+
   topology_mermaid = join("\n", flatten([
     ["graph TD"],
     length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
     [format("  subgraph vpc[%s]", var.vpc_id)],
     flatten([
       for az in local._azs : [
-        format("    subgraph az_%s[\"%s\"]", replace(az, "-", "_"), az),
-        [for k in local._subnets_by_az[az] : format("      %s", replace(k, "-", "_"))],
+        format("    subgraph az_%s[\"%s\"]", local._m[az], az),
+        [for k in local._subnets_by_az[az] : format("      %s", local._m[k])],
         "    end",
       ]
     ]),
-    [for id in local._egress_ids : format("    %s[%s]", replace(id, "-", "_"), local._egress_labels[id])],
+    [for id in local._egress_ids : format("    %s[%s]", local._m[id], local._egress_labels[id])],
     ["  end"],
-    [for id in local._egress_ids : format("  internet --> %s", replace(id, "-", "_"))],
-    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", replace(t, "-", "_"), replace(k, "-", "_")) if t != null],
+    [for id in local._egress_ids : format("  internet --> %s", local._m[id])],
+    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", local._m[t], local._m[k]) if t != null],
   ]))
 }
 
