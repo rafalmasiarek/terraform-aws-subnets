@@ -193,4 +193,11 @@ resource "aws_route_table_association" "this" {
 
   subnet_id      = aws_subnet.this[each.key].id
   route_table_id = aws_route_table.this[each.value.route_table_key].id
+
+  lifecycle {
+    precondition {
+      condition     = contains(keys(var.route_tables), each.value.route_table_key)
+      error_message = "subnet_groups[\"${each.key}\"].route_table_key \"${each.value.route_table_key}\" not found. Available: [${join(", ", sort(keys(var.route_tables)))}]."
+    }
+  }
 }
