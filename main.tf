@@ -146,6 +146,10 @@ resource "aws_subnet" "this" {
       condition     = each.value.cidr_block != null || (var.ipv4_base_cidr_block != null && var.ipv4_subnet_newbits != null)
       error_message = "subnet_groups[\"${each.key}\"] omits cidr_block but ipv4_base_cidr_block / ipv4_subnet_newbits are not set - cannot auto-slice."
     }
+    precondition {
+      condition     = contains(keys(var.route_tables), each.value.route_table_key)
+      error_message = "subnet_groups[\"${each.key}\"].route_table_key \"${each.value.route_table_key}\" not found. Available: [${join(", ", sort(keys(var.route_tables)))}]."
+    }
   }
 }
 
