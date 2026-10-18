@@ -1,5 +1,6 @@
 locals {
-  _egress_routes = {
+  # Default-route (0.0.0.0/0) per subnet, shared by egress_type and egress_target.
+  _default_route = {
     for k, v in var.subnet_groups : k => (
       contains(keys(var.route_tables), v.route_table_key)
         ? [for r in var.route_tables[v.route_table_key].routes : r if r.cidr_block == "0.0.0.0/0"]
@@ -8,10 +9,11 @@ locals {
   }
 
   egress_type_by_subnet = {
-    for k, routes in local._egress_routes : k => (
+    for k, routes in local._default_route : k => (
       length(routes) == 0 ? "none" : (
         routes[0].gateway_id != null ? "internet-gateway" :
         routes[0].nat_gateway_id != null ? "nat-gateway" :
+        routes[0].egress_only_gateway_id != null ? "egress-only-internet-gateway" :
         routes[0].network_interface_id != null ? "network-interface" : "none"
       )
     )
@@ -63,38 +65,18 @@ locals {
     k => v.ipv6_enabled
   }
 
-  # For each subnet, find the egress target from its route table.
-  # Priority: nat_gateway_id > gateway_id (IGW) > egress_only_gateway_id > null.
-  _rt_routes = {
-    for k, v in var.subnet_groups :
-    k => try(var.route_tables[v.route_table_key].routes, [])
-  }
-  _nat_targets = {
-    for k, routes in local._rt_routes :
-    k => [for r in routes : r.nat_gateway_id if r.nat_gateway_id != null]
-  }
-  _igw_targets = {
-    for k, routes in local._rt_routes :
-    k => [for r in routes : r.gateway_id if r.gateway_id != null]
-  }
-  _eigw_targets = {
-    for k, routes in local._rt_routes :
-    k => [for r in routes : r.egress_only_gateway_id if r.egress_only_gateway_id != null]
-  }
-  _eni_targets = {
-    for k, routes in local._rt_routes :
-    k => [for r in routes : r.network_interface_id if r.network_interface_id != null]
-  }
   egress_target_by_subnet = {
-    for k in keys(var.subnet_groups) :
-    k => length(local._nat_targets[k]) > 0 ? local._nat_targets[k][0] :
-    length(local._igw_targets[k]) > 0 ? local._igw_targets[k][0] :
-    length(local._eigw_targets[k]) > 0 ? local._eigw_targets[k][0] :
-    length(local._eni_targets[k]) > 0 ? local._eni_targets[k][0] : null
+    for k, routes in local._default_route : k => (
+      length(routes) == 0 ? null : (
+        routes[0].nat_gateway_id != null ? routes[0].nat_gateway_id :
+        routes[0].gateway_id != null ? routes[0].gateway_id :
+        routes[0].egress_only_gateway_id != null ? routes[0].egress_only_gateway_id :
+        routes[0].network_interface_id != null ? routes[0].network_interface_id : null
+      )
+    )
   }
 
-  _azs    = sort(distinct([for k, v in var.subnet_groups : v.availability_zone if v.availability_zone != null]))
-  _region = length(local._azs) > 0 ? substr(local._azs[0], 0, length(local._azs[0]) - 1) : "unknown"
+  _azs = sort(distinct([for k, v in var.subnet_groups : v.availability_zone if v.availability_zone != null]))
   _subnets_by_az = {
     for az in local._azs : az => [for k, v in var.subnet_groups : k if v.availability_zone == az]
   }
@@ -108,15 +90,15 @@ locals {
     [format("  subgraph vpc[%s]", var.vpc_id)],
     flatten([
       for az in local._azs : [
-        format("    subgraph az_%s[\"%s\"]", az, az),
-        [for k in local._subnets_by_az[az] : format("      %s", k)],
+        format("    subgraph az_%s[\"%s\"]", replace(az, "-", "_"), az),
+        [for k in local._subnets_by_az[az] : format("      %s", replace(k, "-", "_"))],
         "    end",
       ]
     ]),
-    [for id in local._egress_ids : format("    %s[%s]", id, local._egress_labels[id])],
+    [for id in local._egress_ids : format("    %s[%s]", replace(id, "-", "_"), local._egress_labels[id])],
     ["  end"],
-    [for id in local._egress_ids : format("  internet --> %s", id)],
-    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", t, k) if t != null],
+    [for id in local._egress_ids : format("  internet --> %s", replace(id, "-", "_"))],
+    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", replace(t, "-", "_"), replace(k, "-", "_")) if t != null],
   ]))
 }
 
@@ -149,6 +131,14 @@ resource "aws_subnet" "this" {
     precondition {
       condition     = contains(keys(var.route_tables), each.value.route_table_key)
       error_message = "subnet_groups[\"${each.key}\"].route_table_key \"${each.value.route_table_key}\" not found. Available: [${join(", ", sort(keys(var.route_tables)))}]."
+    }
+    precondition {
+      condition     = each.value.role != "public" || local.egress_type_by_subnet[each.key] == "internet-gateway"
+      error_message = "subnet_groups[\"${each.key}\"].role is \"public\" but its route table has no IGW default route (egress_type=${local.egress_type_by_subnet[each.key]})."
+    }
+    precondition {
+      condition     = each.value.role != "isolated" || local.egress_type_by_subnet[each.key] == "none"
+      error_message = "subnet_groups[\"${each.key}\"].role is \"isolated\" but its route table has a default route (egress_type=${local.egress_type_by_subnet[each.key]})."
     }
   }
 }
@@ -191,10 +181,6 @@ resource "aws_route" "this" {
     precondition {
       condition     = length([for t in [each.value.gateway_id, each.value.nat_gateway_id, each.value.network_interface_id, each.value.egress_only_gateway_id] : t if t != null]) == 1
       error_message = "route \"${each.key}\" in route table \"${each.value.route_table_key}\": set exactly one target (gateway_id, nat_gateway_id, network_interface_id, egress_only_gateway_id)."
-    }
-    precondition {
-      condition     = contains(keys(var.route_tables), each.value.route_table_key)
-      error_message = "route \"${each.key}\" references route_table_key \"${each.value.route_table_key}\" which does not exist in var.route_tables."
     }
   }
 }
