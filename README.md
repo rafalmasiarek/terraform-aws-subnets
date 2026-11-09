@@ -43,10 +43,10 @@ module "subnets" {
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `vpc_id` | `string` | - | |
-| `vpc_ipv6_cidr_block` | `string` | `null` | The VPC's own /56 (`module.vpc.ipv6_cidr_block`). Required if any `subnet_groups` entry sets `ipv6_enabled = true`. |
+| `vpc_ipv6_cidr_block` | `string` | `null` | The VPC's own /56 (`module.vpc.ipv6_cidr_block`). Required if any `subnet_groups` entry sets `ipv6_enabled = true` and omits its own `ipv6_cidr_block`. |
 | `ipv4_base_cidr_block` | `string` | `null` | Base CIDR to auto-slice via `cidrsubnet()` for any `subnet_groups` entry that omits `cidr_block`. |
 | `ipv4_subnet_newbits` | `number` | `null` | Extra bits carved per auto-sliced subnet (e.g. `8` to go from a `/16` base to `/24` subnets). |
-| `subnet_groups` | `map(object)` | - | `cidr_block` (optional - auto-sliced from `ipv4_base_cidr_block` if omitted), `availability_zone`, `route_table_key`, `map_public_ip_on_launch`, `ipv6_enabled`, `assign_ipv6_address_on_creation`. |
+| `subnet_groups` | `map(object)` | - | `cidr_block` (optional - auto-sliced from `ipv4_base_cidr_block` if omitted), `ipv6_cidr_block` (optional - auto-sliced `/64` from `vpc_ipv6_cidr_block` if omitted, requires `ipv6_enabled = true`), `availability_zone`, `route_table_key`, `map_public_ip_on_launch`, `ipv6_enabled`, `assign_ipv6_address_on_creation`. |
 | `route_tables` | `map(object)` | - | `routes` list: `cidr_block` or `ipv6_cidr_block` (never both) + one of `gateway_id`/`nat_gateway_id`/`network_interface_id`/`egress_only_gateway_id`. |
 | `az_name_attribute` | `bool` | `false` | Prefix each subnet's name with a short AZ code, e.g. `acme-prod-euc1a-public-a`. |
 | `az_code_overrides` | `map(string)` | `{}` | Per-AZ override/addition to the built-in region-code table, keyed by the full availability zone (e.g. `{"eu-central-1a" = "eu1"}`). |
@@ -61,6 +61,7 @@ module "subnets" {
 | `subnet_ids` | Map keyed by `subnet_groups` key. |
 | `route_table_ids` | Map keyed by `route_tables` key. |
 | `subnet_ipv6_cidr_blocks` | Map keyed by `subnet_groups` key, only subnets that actually got an IPv6 CIDR. |
+| `subnet_allocations` | Map keyed by `subnet_groups` key, exposing each subnet's effective `id`, `ipv4_cidr_block`, `ipv6_cidr_block`, `availability_zone`, `az_code`, `role`, `route_table_key`, and `egress_type` - the actual values in use whether auto-sliced or externally supplied. |
 
 ## Subnet CIDR allocation
 
@@ -73,6 +74,20 @@ control, or omit it and set `ipv4_base_cidr_block` +
 reassigns every auto-sliced subnet's CIDR. Mixing explicit and
 auto-sliced entries in the same `subnet_groups` map is fine; an
 explicit `cidr_block` always wins for that entry.
+
+## IPv6 allocation
+
+Set `ipv6_enabled = true` per `subnet_groups` entry to opt that subnet
+into IPv6. By default, its `/64` is auto-sliced from
+`vpc_ipv6_cidr_block` via `cidrsubnet(vpc_ipv6_cidr_block, 8, <stable
+index>)`, same stable index as IPv4 auto-slicing. Set `ipv6_cidr_block`
+explicitly on that entry to supply an externally computed `/64`
+instead (e.g. from an IPAM system, or any other external source) - it
+always wins over the auto-slice calculation, and the module doesn't
+care where it came from. Mixing auto-sliced and explicit IPv6
+allocations in the same `subnet_groups` map is fine, independently per
+subnet. `ipv6_cidr_block` is ignored (and rejected by a precondition)
+unless `ipv6_enabled = true` on the same entry.
 
 ## AZ naming
 
