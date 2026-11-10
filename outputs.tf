@@ -38,6 +38,22 @@ output "subnet_egress_targets" {
   }
 }
 
+output "subnet_allocations" {
+  description = "Effective per-subnet allocation details (actual values in use, whether auto-sliced or externally supplied), keyed the same as subnet_groups."
+  value = {
+    for k, s in aws_subnet.this : k => {
+      id                = s.id
+      ipv4_cidr_block   = s.cidr_block
+      ipv6_cidr_block   = s.ipv6_cidr_block
+      availability_zone = s.availability_zone
+      az_code           = local.az_code_by_subnet[k]
+      role              = var.subnet_groups[k].role
+      route_table_key   = var.subnet_groups[k].route_table_key
+      egress_type       = local.egress_type_by_subnet[k]
+    }
+  }
+}
+
 output "topology_mermaid" {
   description = "Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render."
   value       = local.topology_mermaid

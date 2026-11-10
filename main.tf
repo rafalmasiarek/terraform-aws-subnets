@@ -3,8 +3,8 @@ locals {
   _default_route = {
     for k, v in var.subnet_groups : k => (
       contains(keys(var.route_tables), v.route_table_key)
-        ? [for r in var.route_tables[v.route_table_key].routes : r if r.cidr_block == "0.0.0.0/0"]
-        : []
+      ? [for r in var.route_tables[v.route_table_key].routes : r if r.cidr_block == "0.0.0.0/0"]
+      : []
     )
   }
 
@@ -113,15 +113,23 @@ resource "aws_subnet" "this" {
   availability_zone       = each.value.availability_zone
   map_public_ip_on_launch = each.value.map_public_ip_on_launch
 
-  ipv6_cidr_block                 = local.ipv6_enabled_by_key[each.key] ? cidrsubnet(var.vpc_ipv6_cidr_block, 8, local.subnet_index_by_key[each.key]) : null
+  ipv6_cidr_block = local.ipv6_enabled_by_key[each.key] ? (
+    each.value.ipv6_cidr_block != null
+    ? each.value.ipv6_cidr_block
+    : cidrsubnet(var.vpc_ipv6_cidr_block, 8, local.subnet_index_by_key[each.key])
+  ) : null
   assign_ipv6_address_on_creation = local.ipv6_enabled_by_key[each.key] ? each.value.assign_ipv6_address_on_creation : null
 
   tags = local.tagger_tags["subnet-${each.key}"]
 
   lifecycle {
     precondition {
-      condition     = !local.ipv6_enabled_by_key[each.key] || var.vpc_ipv6_cidr_block != null
-      error_message = "subnet_groups[\"${each.key}\"] has ipv6_enabled = true but vpc_ipv6_cidr_block was not provided."
+      condition     = !local.ipv6_enabled_by_key[each.key] || each.value.ipv6_cidr_block != null || var.vpc_ipv6_cidr_block != null
+      error_message = "subnet_groups[\"${each.key}\"] has ipv6_enabled = true but neither ipv6_cidr_block nor vpc_ipv6_cidr_block was provided."
+    }
+    precondition {
+      condition     = each.value.ipv6_cidr_block == null || local.ipv6_enabled_by_key[each.key]
+      error_message = "subnet_groups[\"${each.key}\"] sets ipv6_cidr_block but ipv6_enabled = false - it would be ignored. Set ipv6_enabled = true or drop ipv6_cidr_block."
     }
     precondition {
       condition     = each.value.cidr_block == null || can(cidrhost(each.value.cidr_block, 0))
