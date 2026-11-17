@@ -1,4 +1,5 @@
-<!-- BEGIN_TF_DOCS -->
+## Terraform Reference
+
 
 
 ### Requirements
@@ -56,4 +57,3 @@
 | <a name="output_subnet_ids"></a> [subnet\_ids](#output\_subnet\_ids) | n/a |
 | <a name="output_subnet_ipv6_cidr_blocks"></a> [subnet\_ipv6\_cidr\_blocks](#output\_subnet\_ipv6\_cidr\_blocks) | n/a |
 | <a name="output_topology_mermaid"></a> [topology\_mermaid](#output\_topology\_mermaid) | Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render. |
-<!-- END_TF_DOCS -->

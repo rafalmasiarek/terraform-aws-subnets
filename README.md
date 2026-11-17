@@ -12,28 +12,6 @@ Internet Gateway.
 
 
 
-## License
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-```text
-The MIT License (MIT)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files, to deal in the Software
-without restriction.
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
-
-Source: https://opensource.org/licenses/MIT
-```
-See [LICENSE](LICENSE) for full details.
-## Authors
-
-- Rafał Masiarek | [website](https://masiarek.pl) | [email](mailto:rafal@masiarek.pl) | [github](https://github.com/rafalmasiarek)
-
 
 ## Usage
 
@@ -121,7 +99,8 @@ Every subnet also carries `terraform-null-tagger`'s `network` category
 placed in a single AZ the way a subnet is.
 
 
-<!-- BEGIN_TF_DOCS -->
+## Terraform Reference
+
 
 
 ### Requirements
@@ -179,7 +158,31 @@ placed in a single AZ the way a subnet is.
 | <a name="output_subnet_ids"></a> [subnet\_ids](#output\_subnet\_ids) | n/a |
 | <a name="output_subnet_ipv6_cidr_blocks"></a> [subnet\_ipv6\_cidr\_blocks](#output\_subnet\_ipv6\_cidr\_blocks) | n/a |
 | <a name="output_topology_mermaid"></a> [topology\_mermaid](#output\_topology\_mermaid) | Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render. |
-<!-- END_TF_DOCS -->
+
+## License
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+```text
+The MIT License (MIT)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files, to deal in the Software
+without restriction.
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+Source: https://opensource.org/licenses/MIT
+```
+
+
+See [LICENSE](LICENSE) for full details.
+## Authors
+
+- Rafał Masiarek | [website](https://masiarek.pl) | [email](mailto:rafal@masiarek.pl) | [github](https://github.com/rafalmasiarek)
 
 
 <!-- references -->
