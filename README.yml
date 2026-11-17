@@ -1,0 +1,25 @@
+name: terraform-aws-subnets
+repo_url: https://github.com/rafalmasiarek/terraform-aws-subnets
+license: MIT
+
+context:
+  - "## About"
+  - |
+    Terraform module provisioning subnets and route tables - decoupled from
+    each other and from NAT/VPC. Each route table brings its own target per
+    route (`gateway_id`, `nat_gateway_id`, `network_interface_id`, or
+    `egress_only_gateway_id` for IPv6), so this module has no opinion on how
+    traffic actually leaves the VPC. Pair with
+    [terraform-aws-vpc](https://github.com/rafalmasiarek/terraform-aws-vpc) for
+    the VPC, Internet Gateway, and (if `enable_ipv6 = true`) Egress-Only
+    Internet Gateway.
+
+includes:
+  - docs/usage.md
+  - docs/terraform.md
+
+authors:
+  - name: Rafał Masiarek
+    email: rafal@masiarek.pl
+    github: rafalmasiarek
+    website: https://masiarek.pl
