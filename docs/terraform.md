@@ -56,4 +56,4 @@
 | <a name="output_subnet_egress_targets"></a> [subnet\_egress\_targets](#output\_subnet\_egress\_targets) | Per-subnet egress target ID (NAT Gateway, IGW, EIGW, or null for isolated). Derived from route\_tables. |
 | <a name="output_subnet_ids"></a> [subnet\_ids](#output\_subnet\_ids) | n/a |
 | <a name="output_subnet_ipv6_cidr_blocks"></a> [subnet\_ipv6\_cidr\_blocks](#output\_subnet\_ipv6\_cidr\_blocks) | n/a |
-| <a name="output_topology_mermaid"></a> [topology\_mermaid](#output\_topology\_mermaid) | Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render. |
+| <a name="output_topology_fragment"></a> [topology\_fragment](#output\_topology\_fragment) | Network topology fragment for composition with sibling modules via provider::netutils::mermaid\_merge(). See terraform-provider-netutils's docs/topology-fragment-spec.md. |
