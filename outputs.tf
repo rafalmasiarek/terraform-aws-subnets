@@ -38,6 +38,11 @@ output "subnet_egress_targets" {
   }
 }
 
+output "topology_fragment" {
+  description = "Network topology fragment for composition with sibling modules via provider::netutils::mermaid_merge(). See terraform-provider-netutils's docs/topology-fragment-spec.md."
+  value       = local.topology_fragment
+}
+
 output "subnet_allocations" {
   description = "Effective per-subnet allocation details (actual values in use, whether auto-sliced or externally supplied), keyed the same as subnet_groups."
   value = {
@@ -52,9 +57,4 @@ output "subnet_allocations" {
       egress_type       = local.egress_type_by_subnet[k]
     }
   }
-}
-
-output "topology_mermaid" {
-  description = "Mermaid flowchart of the network topology. Paste into a README.md fenced code block with language 'mermaid' to render."
-  value       = local.topology_mermaid
 }
