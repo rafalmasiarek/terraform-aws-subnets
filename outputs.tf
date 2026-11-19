@@ -42,3 +42,19 @@ output "topology_fragment" {
   description = "Network topology fragment for composition with sibling modules via provider::netutils::mermaid_merge(). See terraform-provider-netutils's docs/topology-fragment-spec.md."
   value       = local.topology_fragment
 }
+
+output "subnet_allocations" {
+  description = "Effective per-subnet allocation details (actual values in use, whether auto-sliced or externally supplied), keyed the same as subnet_groups."
+  value = {
+    for k, s in aws_subnet.this : k => {
+      id                = s.id
+      ipv4_cidr_block   = s.cidr_block
+      ipv6_cidr_block   = s.ipv6_cidr_block
+      availability_zone = s.availability_zone
+      az_code           = local.az_code_by_subnet[k]
+      role              = var.subnet_groups[k].role
+      route_table_key   = var.subnet_groups[k].route_table_key
+      egress_type       = local.egress_type_by_subnet[k]
+    }
+  }
+}

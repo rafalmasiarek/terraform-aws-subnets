@@ -4,7 +4,7 @@ variable "vpc_id" {
 }
 
 variable "vpc_ipv6_cidr_block" {
-  description = "The VPC's own /56 IPv6 CIDR (module.vpc.ipv6_cidr_block). Required if any subnet_groups entry sets ipv6_enabled = true - each such subnet gets a deterministic /64 via cidrsubnet(vpc_ipv6_cidr_block, 8, <position in the sorted subnet_groups keys>)."
+  description = "The VPC's own /56 IPv6 CIDR (module.vpc.ipv6_cidr_block). Required if any subnet_groups entry sets ipv6_enabled = true and omits its own ipv6_cidr_block - such a subnet gets a deterministic /64 via cidrsubnet(vpc_ipv6_cidr_block, 8, <position in the sorted subnet_groups keys>)."
   type        = string
   default     = null
 }
@@ -22,9 +22,10 @@ variable "ipv4_subnet_newbits" {
 }
 
 variable "subnet_groups" {
-  description = "One aws_subnet per entry. route_table_key must match a key in var.route_tables. Omit cidr_block to auto-slice it from ipv4_base_cidr_block instead. role selects the routing profile: public, private, isolated, or endpoint."
+  description = "One aws_subnet per entry. route_table_key must match a key in var.route_tables. Omit cidr_block to auto-slice it from ipv4_base_cidr_block instead. Omit ipv6_cidr_block (with ipv6_enabled = true) to auto-slice a /64 from vpc_ipv6_cidr_block instead - set it explicitly to use an externally computed /64 (e.g. from another IPAM source) instead of the module's own cidrsubnet() calculation. role selects the routing profile: public, private, isolated, or endpoint."
   type = map(object({
     cidr_block                      = optional(string)
+    ipv6_cidr_block                 = optional(string)
     availability_zone               = optional(string)
     route_table_key                 = string
     map_public_ip_on_launch         = optional(bool, false)
@@ -40,6 +41,14 @@ variable "subnet_groups" {
   validation {
     condition     = alltrue([for k, v in var.subnet_groups : !(v.role == "public" && !v.map_public_ip_on_launch)])
     error_message = "A subnet with role \"public\" must set map_public_ip_on_launch = true."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.subnet_groups : v.ipv6_cidr_block == null || can(cidrhost(v.ipv6_cidr_block, 0))])
+    error_message = "subnet_groups[].ipv6_cidr_block, when set, must be a valid IPv6 CIDR."
+  }
+  validation {
+    condition     = alltrue([for k, v in var.subnet_groups : v.ipv6_cidr_block == null || tonumber(split("/", v.ipv6_cidr_block)[1]) == 64])
+    error_message = "subnet_groups[].ipv6_cidr_block, when set, must be a /64 - AWS requires subnet IPv6 CIDRs to be exactly /64."
   }
 }
 
