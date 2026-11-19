@@ -3,8 +3,8 @@ locals {
   _default_route = {
     for k, v in var.subnet_groups : k => (
       contains(keys(var.route_tables), v.route_table_key)
-        ? [for r in var.route_tables[v.route_table_key].routes : r if r.cidr_block == "0.0.0.0/0"]
-        : []
+      ? [for r in var.route_tables[v.route_table_key].routes : r if r.cidr_block == "0.0.0.0/0"]
+      : []
     )
   }
 
@@ -77,32 +77,23 @@ locals {
   }
 
   _azs = sort(distinct([for k, v in var.subnet_groups : v.availability_zone if v.availability_zone != null]))
-  _subnets_by_az = {
-    for az in local._azs : az => [for k, v in var.subnet_groups : k if v.availability_zone == az]
+
+  # Network topology fragment for composition with sibling modules via
+  # provider::netutils::mermaid_merge() - see
+  # https://github.com/rafalmasiarek/terraform-provider-netutils/blob/main/docs/topology-fragment-spec.md
+  #
+  # Edge direction follows that spec's egress convention: a subnet
+  # points toward its own egress target, never the reverse.
+  topology_fragment = {
+    entities = concat(
+      [for az in local._azs : { id = "az:${az}", label = az, kind = "az", parent = var.vpc_id }],
+      [for k, s in aws_subnet.this : { id = s.id, label = k, kind = "subnet", parent = "az:${s.availability_zone}" }]
+    )
+    edges = [
+      for k, t in local.egress_target_by_subnet : { from = aws_subnet.this[k].id, to = t, kind = null, label = null }
+      if t != null
+    ]
   }
-  _egress_ids = distinct([for t in values(local.egress_target_by_subnet) : t if t != null])
-
-  _egress_labels = { for id in local._egress_ids : id => element(split("-", id), 0) }
-
-  # Mermaid node IDs must not contain hyphens or dots (treated as operators).
-  _m = { for id in setunion(keys(local.egress_target_by_subnet), toset(local._egress_ids), toset(local._azs)) : id => replace(replace(id, "-", "_"), ".", "_") }
-
-  topology_mermaid = join("\n", flatten([
-    ["graph TD"],
-    length(local._egress_ids) > 0 ? ["  internet[Internet]"] : [],
-    [format("  subgraph vpc[%s]", var.vpc_id)],
-    flatten([
-      for az in local._azs : [
-        format("    subgraph az_%s[\"%s\"]", local._m[az], az),
-        [for k in local._subnets_by_az[az] : format("      %s", local._m[k])],
-        "    end",
-      ]
-    ]),
-    [for id in local._egress_ids : format("    %s[%s]", local._m[id], local._egress_labels[id])],
-    ["  end"],
-    [for id in local._egress_ids : format("  internet --> %s", local._m[id])],
-    [for k, t in local.egress_target_by_subnet : format("  %s --> %s", local._m[t], local._m[k]) if t != null],
-  ]))
 }
 
 resource "aws_subnet" "this" {
